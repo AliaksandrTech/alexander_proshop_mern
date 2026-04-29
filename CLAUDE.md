@@ -28,7 +28,14 @@ npm test             # react-scripts test (jest, watch mode)
 npm test -- --watchAll=false MyFile.test.js   # single test, non-watch
 ```
 
-Backend has no test runner configured.
+Backend tests use Jest (installed as a root devDependency, no `npm test` script wired). The backend is ESM (`"type": "module"`), so Jest needs `--experimental-vm-modules`:
+
+```
+NODE_OPTIONS=--experimental-vm-modules npx jest                                    # all
+NODE_OPTIONS=--experimental-vm-modules npx jest backend/__tests__/createProductReview.test.js
+```
+
+Existing tests live in `backend/__tests__/` and use `jest.unstable_mockModule` (the only mock API that works under ESM) — see `createProductReview.test.js` as the reference shape for new tests. They are *characterization* tests: assertions reproduce current behavior including known bugs (marked with `BUGGY BEHAVIOR` comments). Do not "fix" those assertions when they look wrong — change the code and the test together, deliberately.
 
 Database seed (requires `MONGO_URI` set — see Env below):
 ```
@@ -72,6 +79,28 @@ The PayPal client ID is exposed to the frontend via the unauthenticated endpoint
 ### Cross-cutting
 - The frontend talks to the backend exclusively through `/api/*`; never hardcode `http://localhost:5000` — rely on the CRA proxy (or the Docker-rewritten proxy) so dev and prod behave the same.
 - Image URLs returned from the upload endpoint start with `/uploads/...` and are served by the same Express app, so they work in both dev (via proxy) and prod (via static middleware).
+
+## Documentation
+
+When the user's task touches an architectural decision, a known bug, or the
+overall map of the system, read these *before* opening source files — they
+capture context that isn't obvious from the code:
+
+- `docs/architecture.md` — Identity Card, C4-container Mermaid diagram with real
+  file-path nodes, churn hotspots, test gaps, and a 2-paragraph project history.
+  The onboarding map.
+- `docs/adr/0001-jwt-bearer-with-localstorage.md` — why auth is stateless JWT in
+  `Authorization` header + `localStorage`, and what alternatives (sessions,
+  httpOnly cookies, Passport) were rejected.
+- `docs/adr/0002-same-origin-via-cra-proxy.md` — why there is no `cors` middleware
+  and how dev/Docker/prod all collapse to a single origin.
+- `docs/adr/0003-redux-reducer-per-use-case.md` — why the store has 21
+  reducers (one per operation, not per resource) and why this is deliberate.
+- `FINDINGS.md` — open audit table of risks/bugs found in the code; check it
+  before claiming a behavior is "the bug" — it may already be tracked.
+- `docs/m2-char-tests/` — frozen snapshot of the `createProductReview`
+  refactor (original / refactored / tests / reflection). Documentation only;
+  the live runnable test is in `backend/__tests__/`.
 
 ## Notes / gotchas
 
